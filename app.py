@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 from pymongo import MongoClient
 import gridfs
 
@@ -20,13 +20,39 @@ def authenticate(username, password):
         return user
     return None
 
-def get_pdf(pdf_id):
-    file = fs.get(pdf_id).read()
-    print(file)
 
 def get_pdf_id(filename):
     file_doc = fs.find_one({"filename": filename})  # Search by filename
     return file_doc._id if file_doc else None  # Return ObjectId if found
+
+@app.route('/')
+def home():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to Flask</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                margin-top: 50px;
+            }
+            h1 {
+                color: #4CAF50;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to Flask App</h1>
+        <p>This page is displayed when the Flask app starts.</p>
+    </body>
+    </html>
+    """
+    return render_template_string(html_content)
+
 
 # Route: Register User (For Testing Purposes)
 @app.route("/register", methods=["POST"])
@@ -125,13 +151,15 @@ def remove_pdf():
     user = authenticate(username, password)
     if not user: return jsonify({"error": "Invalid credentials"}), 401
 
-    if pdf_name not in user["pdfs"]: return jsonify({"error": "PDF not found"}), 404
+    pdf_id = get_pdf_id(pdf_name)
+    if pdf_id not in user["pdfs"]: 
+        return jsonify({"error": "PDF not found"}), 404
 
     users_collection.update_one(
         {"username": username},
-        {"$pull": {"pdfs": pdf_name}}
+        {"$pull": {"pdfs": pdf_id}}
     )
-    fs.delete(get_pdf_id(pdf_name))    
+    fs.delete(pdf_id)
     
     return jsonify({"message": "PDF removed successfully"}), 200
 
