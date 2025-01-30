@@ -1,10 +1,13 @@
+
+from flask import Flask, request, jsonify
 from pymongo import MongoClient
 import gridfs
+app = Flask(__name__)
 
 uri = "mongodb+srv://Prasham:passpass@cluster0.aopixi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(uri)
 db = client['new']
-c = db["user"]
+user_collection = db["user"]
 fs = gridfs.GridFS(db)
 print('Success connection.')
 
@@ -21,11 +24,57 @@ def download_pdf(file_id, output_path):
         f.write(file_data)
 
 
-if __name__ == "__main__":
-    file_id = upload_pdf('test.pdf')
-    print(f'Uploaded file with ID: {file_id}')
 
-    # # Download the PDF file
-    download_pdf(file_id, 'save.pdf')
-    print('File downloaded successfully')
-    pass
+# Route: Register User
+@app.route("/register", methods=["POST"])
+def register_user():
+    data = request.json
+    if not data or not all(k in data for k in ("username", "password", "pdfs")):
+        return jsonify({"error": "Missing fields"}), 400
+
+    if users_collection.find_one({"username": data["username"]}):
+        return jsonify({"error": "User already exists"}), 409
+
+    users_collection.insert_one(data)
+    return jsonify({"message": "User registered successfully"}), 201
+
+# Route: Get User Details
+@app.route("/user/<username>", methods=["GET"])
+def get_user(username):
+    user = users_collection.find_one({"username": username}, {"_id": 0})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(user), 200
+
+# Route: Update PDFs for User
+@app.route("/user/<username>", methods=["PUT"])
+def update_pdfs(username):
+    data = request.json
+    if "pdfs" not in data:
+        return jsonify({"error": "PDF list is required"}), 400
+
+    result = users_collection.update_one(
+        {"username": username}, {"$set": {"pdfs": data["pdfs"]}}
+    )
+    if result.matched_count == 0:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({"message": "PDF list updated"}), 200
+
+# Route: Delete User
+@app.route("/user/<username>", methods=["DELETE"])
+def delete_user(username):
+    result = users_collection.delete_one({"username": username})
+    if result.deleted_count == 0:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"message": "User deleted successfully"}), 200
+
+
+
+
+
+# Run the Flask app
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
