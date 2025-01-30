@@ -1,80 +1,118 @@
-
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 import gridfs
+
 app = Flask(__name__)
 
+# Connect to MongoDB
 uri = "mongodb+srv://Prasham:passpass@cluster0.aopixi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(uri)
 db = client['new']
-user_collection = db["user"]
+users_collection = db["user"]
 fs = gridfs.GridFS(db)
 print('Success connection.')
 
-# Function to upload PDF file
-def upload_pdf(file_path):
-    with open(file_path, 'rb') as f:
-        file_id = fs.put(f, filename=file_path)
-    return file_id
 
-# Function to download PDF file
-def download_pdf(file_id, output_path):
-    file_data = fs.get(file_id).read()
-    with open(output_path, 'wb') as f:
-        f.write(file_data)
+# Helper Function: Authenticate User
+def authenticate(username, password):
+    user = users_collection.find_one({"username": username})
+    if user and user["password"] == password:
+        return user
+    return None
 
+# Route: Register User (For Testing Purposes)
+@app.route("/register", methods=["GET","POST"])
+def register():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing user fields"}), 400
 
-
-# Route: Register User
-@app.route("/register", methods=["POST"])
-def register_user():
-    data = request.json
-    if not data or not all(k in data for k in ("username", "password", "pdfs")):
-        return jsonify({"error": "Missing fields"}), 400
-
-    if users_collection.find_one({"username": data["username"]}):
+    if users_collection.find_one({"username": username}):
         return jsonify({"error": "User already exists"}), 409
 
-    users_collection.insert_one(data)
+    users_collection.insert_one({
+        "username": username,
+        "password": password,
+        "pdfs": []  # Initialize empty PDF list
+    })
     return jsonify({"message": "User registered successfully"}), 201
 
-# Route: Get User Details
-@app.route("/user/<username>", methods=["GET"])
-def get_user(username):
-    user = users_collection.find_one({"username": username}, {"_id": 0})
+# Route: List all PDFs
+@app.route("/user/pdfs", methods=["POST"])
+def list_pdfs():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing user fields"}), 400
+
+    user = authenticate(username, password)
+    
     if not user:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify(user), 200
+        return jsonify({"error": "Invalid credentials"}), 401
 
-# Route: Update PDFs for User
-@app.route("/user/<username>", methods=["PUT"])
-def update_pdfs(username):
-    data = request.json
-    if "pdfs" not in data:
-        return jsonify({"error": "PDF list is required"}), 400
+    a = [fs.get(x).filename for x in user.get("pdfs", []) ]
+    return jsonify({"pdfs": a}), 200
 
-    result = users_collection.update_one(
-        {"username": username}, {"$set": {"pdfs": data["pdfs"]}}
+# Route: Add a PDF
+@app.route("/user/add_pdf", methods=["POST"])
+def add_pdf():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    if not username or not password:
+        return jsonify({"error": "Missing user fields"}), 400
+
+    user = authenticate(username, password)
+    
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    if not file.filename.endswith(".pdf"):
+        return jsonify({"error": "Invalid file type, only PDFs allowed"}), 400
+    
+    # Save PDF file
+    file_id = fs.put(file, filename=file.filename)
+    users_collection.update_one(
+        {"username": username},
+        {"$push": {"pdfs": file_id}}
     )
-    if result.matched_count == 0:
-        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({"message": "File uploaded successfully", "file_name": file.filename}), 200
 
-    return jsonify({"message": "PDF list updated"}), 200
+# Route: Remove a PDF
+@app.route("/user/remove_pdf", methods=["PUT"])
+def remove_pdf():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    pdf_id = request.form.get("pdf_id")
 
-# Route: Delete User
-@app.route("/user/<username>", methods=["DELETE"])
-def delete_user(username):
-    result = users_collection.delete_one({"username": username})
-    if result.deleted_count == 0:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify({"message": "User deleted successfully"}), 200
+    if not username or not password or not pdf_id:
+        return jsonify({"error": "Missing user fields"}), 400
 
+    user = authenticate(username, password)
+    
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
 
+    if pdf_id not in user["pdfs"]:
+        return jsonify({"error": "PDF not found"}), 404
 
+    users_collection.update_one(
+        {"username": username},
+        {"$pull": {"pdfs": "pdf_id"}}
+    )
+    return jsonify({"message": "PDF removed successfully"}), 200
 
-
-# Run the Flask app
+# Run Flask App
 if __name__ == "__main__":
-    app.run(debug=True)
-
-
+    app.run(host="0.0.0.0", port=5000, debug=True)
