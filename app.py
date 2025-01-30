@@ -20,8 +20,16 @@ def authenticate(username, password):
         return user
     return None
 
+def get_pdf(pdf_id):
+    file = fs.get(pdf_id).read()
+    print(file)
+
+def get_pdf_id(filename):
+    file_doc = fs.find_one({"filename": filename})  # Search by filename
+    return file_doc._id if file_doc else None  # Return ObjectId if found
+
 # Route: Register User (For Testing Purposes)
-@app.route("/register", methods=["GET","POST"])
+@app.route("/register", methods=["POST"])
 def register():
     username = request.form.get("username")
     password = request.form.get("password")
@@ -39,6 +47,20 @@ def register():
     })
     return jsonify({"message": "User registered successfully"}), 201
 
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing user fields"}), 400
+
+    if authenticate(username, password):
+        return jsonify({"message": "User authenticated"}), 200
+    
+    return jsonify({"error": "Invalid credentials"}), 401
+
+
 # Route: List all PDFs
 @app.route("/user/pdfs", methods=["POST"])
 def list_pdfs():
@@ -55,6 +77,7 @@ def list_pdfs():
 
     a = [fs.get(x).filename for x in user.get("pdfs", []) ]
     return jsonify({"pdfs": a}), 200
+
 
 # Route: Add a PDF
 @app.route("/user/add_pdf", methods=["POST"])
@@ -90,27 +113,26 @@ def add_pdf():
     return jsonify({"message": "File uploaded successfully", "file_name": file.filename}), 200
 
 # Route: Remove a PDF
-@app.route("/user/remove_pdf", methods=["PUT"])
+@app.route("/user/remove_pdf", methods=["POST"])
 def remove_pdf():
     username = request.form.get("username")
     password = request.form.get("password")
-    pdf_id = request.form.get("pdf_id")
+    pdf_name = request.form.get("pdf_name")
 
-    if not username or not password or not pdf_id:
+    if not username or not password or not pdf_name:
         return jsonify({"error": "Missing user fields"}), 400
 
     user = authenticate(username, password)
-    
-    if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
+    if not user: return jsonify({"error": "Invalid credentials"}), 401
 
-    if pdf_id not in user["pdfs"]:
-        return jsonify({"error": "PDF not found"}), 404
+    if pdf_name not in user["pdfs"]: return jsonify({"error": "PDF not found"}), 404
 
     users_collection.update_one(
         {"username": username},
-        {"$pull": {"pdfs": "pdf_id"}}
+        {"$pull": {"pdfs": pdf_name}}
     )
+    fs.delete(get_pdf_id(pdf_name))    
+    
     return jsonify({"message": "PDF removed successfully"}), 200
 
 # Run Flask App
