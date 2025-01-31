@@ -5,9 +5,12 @@ from pymongo import MongoClient
 import google.generativeai as genai
 from flask import Flask, request, jsonify, render_template_string, send_file
 import io
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = "AIzaSyBlyqKS3lHjVZC465jNGOv-5-vtOJ3zfts" 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
@@ -17,7 +20,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 app = Flask(__name__)
 
 # Connect to MongoDB
-uri = "mongodb+srv://Prasham:passpass@cluster0.aopixi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+uri = os.getenv("uri")
 client = MongoClient(uri)
 db = client['new']
 users_collection = db["user"]
@@ -240,7 +243,7 @@ def podcast_pdf():
         return jsonify({"error": "PDF not found"}), 404
     pdf = fs.get(pdf_id)
     
-    custom_context = "Provide a 10 min podcast script for the PDF discussing the key points."
+    custom_context = "Provide a podcast script for the PDF discussing the key points in less than 30 words and speech must be less 20 seconds."
     text = process_pdf_with_gemini(pdf, custom_context)
     print("PDF processed successfully")
     
