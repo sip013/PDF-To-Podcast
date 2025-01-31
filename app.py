@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify, render_template_string, send_file
 import io
 
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = "AIzaSyBlyqKS3lHjVZC465jNGOv-5-vtOJ3zfts" 
+GOOGLE_API_KEY = "AIzaSyAnAVJRwF6IOTQbJ4tVqWAIT-jT5K-hUiY" 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
