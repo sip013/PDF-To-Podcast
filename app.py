@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = "AIzaSyBlyqKS3lHjVZC465jNGOv-5-vtOJ3zfts" 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
