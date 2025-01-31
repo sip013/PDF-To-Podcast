@@ -240,7 +240,7 @@ def podcast_pdf():
         return jsonify({"error": "PDF not found"}), 404
     pdf = fs.get(pdf_id)
     
-    custom_context = "Provide a podcast script for the PDF discussing the key points in less than 500 words."
+    custom_context = "Provide a podcast script for the PDF discussing the key points in less than 30 words and speech must be less 20 seconds."
     text = process_pdf_with_gemini(pdf, custom_context)
     print("PDF processed successfully")
     
