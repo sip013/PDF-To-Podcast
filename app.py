@@ -5,9 +5,12 @@ from pymongo import MongoClient
 import google.generativeai as genai
 from flask import Flask, request, jsonify, render_template_string, send_file
 import io
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = "AIzaSyAnAVJRwF6IOTQbJ4tVqWAIT-jT5K-hUiY" 
+GOOGLE_API_KEY = os.getenv("GOOGLE_API")
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
@@ -17,7 +20,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 app = Flask(__name__)
 
 # Connect to MongoDB
-uri = "mongodb+srv://Prasham:passpass@cluster0.aopixi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+uri = os.getenv("MONGO_URI")
 client = MongoClient(uri)
 db = client['new']
 users_collection = db["user"]
@@ -224,7 +227,7 @@ def podcast_pdf():
     password = request.form.get("password")
     pdf_name = request.form.get("pdf_name")
     print(username,password,pdf_name)
-
+    print(GOOGLE_API_KEY)
     if not username or not password or not pdf_name:
         return jsonify({"error": "Missing user fields"}), 400
 
