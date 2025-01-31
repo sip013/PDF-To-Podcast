@@ -5,12 +5,9 @@ from pymongo import MongoClient
 import google.generativeai as genai
 from flask import Flask, request, jsonify, render_template_string, send_file
 import io
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = "AIzaSyBlyqKS3lHjVZC465jNGOv-5-vtOJ3zfts" 
+GOOGLE_API_KEY = "AIzaSyAnAVJRwF6IOTQbJ4tVqWAIT-jT5K-hUiY" 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
@@ -20,7 +17,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 app = Flask(__name__)
 
 # Connect to MongoDB
-uri = os.getenv("uri")
+uri = "mongodb+srv://Prasham:passpass@cluster0.aopixi8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(uri)
 db = client['new']
 users_collection = db["user"]
