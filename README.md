@@ -4,7 +4,7 @@ This repository contains a Blazor frontend and a Flask-based backend (`app.py`) 
 
 ## Features
 - Upload and manage PDFs via Blazor UI.
-- Extract key content from research papers using the Gemini API.
+- Extract key content from research papers using the  Gemini API.
 - Generate summaries and podcasts using text-to-speech (Google TTS).
 - User authentication and PDF storage using MongoDB and GridFS.
 - Backend API built using Flask.
