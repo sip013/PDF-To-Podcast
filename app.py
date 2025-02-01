@@ -247,6 +247,9 @@ def summary_pdf():
     
     chat_map[username] = chat_session
     return jsonify({"message": "PDF processed successfully", "data": pdf_text}), 200
+    
+
+    
 
     
 
