@@ -8,6 +8,7 @@ This repository contains a Blazor frontend and a Flask-based backend (`app.py`) 
 - Generate summaries and podcasts using text-to-speech (Google TTS).
 - User authentication and PDF storage using MongoDB and GridFS.
 - Backend API built using Flask.
+- Hosted on Render for seamless accessibility.
 
 ## Tech Stack
 ### Frontend:
@@ -20,6 +21,15 @@ This repository contains a Blazor frontend and a Flask-based backend (`app.py`) 
 - **GridFS** (For managing large PDF files in MongoDB)
 - **Google TTS** (For generating podcasts from extracted content)
 - **Google Gemini API (gemini-1.5-flash)** (For text extraction and summarization)
+- **PyMuPDF** (For extracting text from PDFs)
+
+## Approach
+1. Extract text from PDFs using PyMuPDF.
+2. Summarize key sections via Gemini API.
+3. Convert text to speech using Google TTS.
+4. Deliver the podcast through a user-friendly Blazor UI.
+5. Store and retrieve processed content using MongoDB.
+6. Host the backend API on Render for seamless accessibility.
 
 ## Setup Instructions
 ### Prerequisites:

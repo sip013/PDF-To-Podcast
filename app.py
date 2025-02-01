@@ -281,7 +281,7 @@ def podcast_pdf():
     
     tts = gTTS(text=text, lang="en", slow=False)
     audio_buffer = io.BytesIO()
-    tts.write_to_fp(audio_buffer)  # Write audio data to buffer
+    tts.write_to_fp(audio_buffer)
     audio_buffer.seek(0)  # Move pointer to the beginning
 
     # Send MP3 file as response
