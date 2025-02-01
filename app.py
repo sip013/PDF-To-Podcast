@@ -1,12 +1,14 @@
 import gridfs
 from gtts import gTTS
-from PyPDF2 import PdfReader
 from pymongo import MongoClient
 import google.generativeai as genai
 from flask import Flask, request, jsonify, render_template_string, send_file
 import io
+
+chat_map = {}
+
 # Set up Gemini API key (replace with your key)
-GOOGLE_API_KEY = "AIzaSyAnAVJRwF6IOTQbJ4tVqWAIT-jT5K-hUiY"
+GOOGLE_API_KEY = "AIzaSyAnAVJRwF6IOTQbJ4tVqWAIT-jT5K-hUiY" 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
@@ -36,7 +38,6 @@ def process_pdf_with_gemini(pdf, context):
     ])
     return response.text
 
-
 def authenticate(username, password):
     user = users_collection.find_one({"username": username})
     if user and user["password"] == password:
@@ -50,32 +51,32 @@ def get_pdf_id(filename, username):
 
 @app.route('/')
 def home():
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Flask</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                text-align: center;
-                margin-top: 50px;
-            }
-            h1 {
-                color: #4CAF50;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Welcome to the Backend home of AI Web App</h1>
-        <p> this is cactus track , use available api services </p>
-        <p> copyright @2025 </p>
-    </body>
-    </html>
-    """
-    return render_template_string(html_content)
+    # html_content = """
+    # <!DOCTYPE html>
+    # <html lang="en">
+    # <head>
+    #     <meta charset="UTF-8">
+    #     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    #     <title>Welcome to Flask</title>
+    #     <style>
+    #         body {
+    #             font-family: Arial, sans-serif;
+    #             text-align: center;
+    #             margin-top: 50px;
+    #         }
+    #         h1 {
+    #             color: #4CAF50;
+    #         }
+    #     </style>
+    # </head>
+    # <body>
+    #     <h1>Welcome to the Backend home of AI Web App</h1>
+    #     <p> this is cactus track , use available api services </p>
+    #     <p> copyright @2025 </p>
+    # </body>
+    # </html>
+    # """
+    return send_from_directory("wwwroot", "index.html")
 
 
 # Route: Register User (For Testing Purposes)
@@ -88,14 +89,14 @@ def register():
         return jsonify({"error": "Missing user fields"}), 400
 
     if users_collection.find_one({"username": username}):
-        return jsonify({"error": "User already exists"}), 409
+        return jsonify({"error": "User already exists"}), 400
 
     users_collection.insert_one({
         "username": username,
         "password": password,
         "pdfs": []  # Initialize empty PDF list
     })
-    return jsonify({"message": "User registered successfully"}), 201
+    return jsonify({"message": "User registered successfully"}), 200
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -108,7 +109,7 @@ def login():
     if authenticate(username, password):
         return jsonify({"message": "User authenticated"}), 200
     
-    return jsonify({"error": "Invalid credentials"}), 401
+    return jsonify({"error": "Invalid credentials"}), 400
 
 
 # Route: List all PDFs
@@ -123,7 +124,7 @@ def list_pdfs():
     user = authenticate(username, password)
     
     if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
+        return jsonify({"error": "Invalid credentials"}), 400
 
     a = [fs.get(x).filename for x in user.get("pdfs", []) ]
     return jsonify({"pdfs": a}), 200
@@ -141,7 +142,7 @@ def add_pdf():
     user = authenticate(username, password)
     
     if not user:
-        return jsonify({"error": "Invalid credentials"}), 401
+        return jsonify({"error": "Invalid credentials"}), 400
 
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -178,11 +179,11 @@ def remove_pdf():
         return jsonify({"error": "Missing user fields"}), 400
 
     user = authenticate(username, password)
-    if not user: return jsonify({"error": "Invalid credentials"}), 401
+    if not user: return jsonify({"error": "Invalid credentials"}), 400
 
     pdf_id = get_pdf_id(pdf_name, username)
     if pdf_id not in user["pdfs"]: 
-        return jsonify({"error": "PDF not found"}), 404
+        return jsonify({"error": "PDF not found"}), 400
 
     users_collection.update_one(
         {"username": username},
@@ -191,6 +192,30 @@ def remove_pdf():
     fs.delete(pdf_id)
     
     return jsonify({"message": "PDF removed successfully"}), 200
+
+@app.route("/user/query_pdf", methods=["POST"])
+def query_pdf():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    query = request.form.get("query")
+    
+    print(username,password,query)
+
+    if not username or not password or not query:
+        return jsonify({"error": "Missing user fields"}), 400
+
+    user = authenticate(username, password)
+    if not user: return jsonify({"error": "Invalid credentials"}), 400
+    
+    try:
+        print(chat_map[username])
+        print("hello")
+        response = chat_map[username].send_message(query)
+        print(response)
+        return jsonify({"data": response}), 200
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
 
 @app.route("/user/summary_pdf", methods=["POST"])
 def summary_pdf():
@@ -203,32 +228,40 @@ def summary_pdf():
         return jsonify({"error": "Missing user fields"}), 400
 
     user = authenticate(username, password)
-    if not user: return jsonify({"error": "Invalid credentials"}), 401
+    if not user: return jsonify({"error": "Invalid credentials"}), 400
 
     pdf_id = get_pdf_id(pdf_name, username)
     
     if pdf_id not in user["pdfs"]: 
-        return jsonify({"error": "PDF not found"}), 404
+        return jsonify({"error": "PDF not found"}), 400
     pdf = fs.get(pdf_id)
     
     custom_context = "Provide detailed summary."
     pdf_text = process_pdf_with_gemini(pdf, custom_context)
     print("PDF processed successfully")
     
+    # Initialize chat session with PDF context
+    chat_session = model.start_chat(history=[
+        {"role": "user", "parts": [{"text": f"process the following document and list everything. You should use this information to answer questions: {pdf_text}"}]}
+    ]) 
+    
+    chat_map[username] = chat_session
     return jsonify({"message": "PDF processed successfully", "data": pdf_text}), 200
+
+    
 
 @app.route("/user/podcast_pdf", methods=["POST"])
 def podcast_pdf():
     username = request.form.get("username")
     password = request.form.get("password")
     pdf_name = request.form.get("pdf_name")
-    print(username,password,pdf_name)
-    print(GOOGLE_API_KEY)
+    print(username, password, pdf_name)
+
     if not username or not password or not pdf_name:
         return jsonify({"error": "Missing user fields"}), 400
 
     user = authenticate(username, password)
-    if not user: return jsonify({"error": "Invalid credentials"}), 401
+    if not user: return jsonify({"error": "Invalid credentials"}), 400
 
     pdf_id = get_pdf_id(pdf_name, username)
     
@@ -236,10 +269,10 @@ def podcast_pdf():
     print(pdf_id in user["pdfs"])
     print(user["pdfs"])
     if pdf_id not in user["pdfs"]: 
-        return jsonify({"error": "PDF not found"}), 404
+        return jsonify({"error": "PDF not found"}), 400
     pdf = fs.get(pdf_id)
     
-    custom_context = "Provide a podcast script for the PDF discussing the key points in less than 30 words and speech must be less 20 seconds."
+    custom_context = "Provide a 3 min (200 words) podcast script and dont provide headers, just start narating the script like that in an actual podcast for the PDF discussing the key points."
     text = process_pdf_with_gemini(pdf, custom_context)
     print("PDF processed successfully")
     

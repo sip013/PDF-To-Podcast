@@ -1,0 +1,82 @@
+@page "/podcast/{pdf_name}"
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<h3>Podcast Player</h3>
+<p>@pdf_name</p>
+<p>@message</p>
+
+
+@if (!string.IsNullOrEmpty(mp3Url))
+{
+    <audio controls>
+        <source src="@mp3Url" type="audio/mpeg">
+    </audio>
+}
+
+@code {
+    [Parameter] 
+    public string? pdf_name { get; set; }  
+
+    private string? mp3Url;
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private string message = "loading";
+
+    private async Task GeneratePodcast()
+    {
+        username = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "userEmail") ?? string.Empty;
+        password = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "userPassword") ?? string.Empty;
+
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            Console.WriteLine("Error: Missing user credentials.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(pdf_name))
+        {
+            Console.WriteLine("Error: Missing PDF name.");
+            return;
+        }
+
+
+        var httpClient = HttpClientFactory.CreateClient("Backend");
+        var response = await httpClient.PostAsync("/user/podcast_pdf",
+        new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            { "username", username },
+            { "password", password },
+            { "pdf_name", pdf_name }
+        }));
+
+        message = "loaded";
+
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("h");
+            var mp3Bytes = await response.Content.ReadAsByteArrayAsync();
+            Console.WriteLine("o");
+            string base64Mp3 = Convert.ToBase64String(mp3Bytes);
+            mp3Url = $"data:audio/mpeg;base64,{base64Mp3}";
+
+            Console.WriteLine("Podcast loaded successfully.");
+        }
+        else
+        {
+            Console.WriteLine("Failed to generate podcast.");
+        }
+
+        StateHasChanged();
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender){
+            await GeneratePodcast();
+            StateHasChanged();
+        }
+    }
+}

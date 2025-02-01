@@ -1,0 +1,83 @@
+@page "/summary/{pdf_name}"
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<h3>Summary</h3>
+<p>@pdf_name</p>
+<p>@message</p>
+
+
+@code {
+    [Parameter] 
+    public string? pdf_name { get; set; }  
+
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private string message = "Loading...";
+
+    private async Task GeneratePodcast()
+    {
+        username = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "userEmail") ?? string.Empty;
+        password = await JSRuntime.InvokeAsync<string>("sessionStorage.getItem", "userPassword") ?? string.Empty;
+
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            message = "Error: Missing user credentials.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(pdf_name))
+        {
+            message = "Error: Missing PDF name.";
+            return;
+        }
+
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("Backend");
+            var response = await httpClient.PostAsync("/user/summary_pdf",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    { "username", username },
+                    { "password", password },
+                    { "pdf_name", pdf_name }
+                }));
+
+            if (response.IsSuccessStatusCode)
+            {
+                var m = await response.Content.ReadFromJsonAsync<ResponseModel>();
+                if (m != null)
+                {
+                    message = m.Data;
+                }
+                else
+                {
+                    message = "Error: No data received.";
+                }
+            }
+            else
+            {
+                message = $"Failed to generate summary. Status: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error fetching data: {ex.Message}";
+        }
+    }
+
+    private class ResponseModel
+    {
+        public string Data { get; set; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await GeneratePodcast();
+            StateHasChanged();
+        }
+    }
+}
